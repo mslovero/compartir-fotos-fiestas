@@ -1,0 +1,36 @@
+{
+  "name": "fiesta-15-photos",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test:upload": "tsx scripts/upload-test-photos.ts",
+    "test:cleanup": "tsx scripts/cleanup-test-photos.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^25.3.2",
+    "@types/react": "^19.2.14",
+    "autoprefixer": "^10.4.27",
+    "cloudinary": "^2.9.0",
+    "firebase": "^12.9.0",
+    "formidable": "^3.5.4",
+    "framer-motion": "^12.34.3",
+    "next": "^16.1.6",
+    "postcss": "^8.5.6",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

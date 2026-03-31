@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply min-h-screen;
+    @apply text-gray-900;
+    position: relative;
+    background: #F5F3EE;
+  }
+
+  body::before {
+    content: '✿';
+    position: fixed;
+    top: 40px;
+    left: 40px;
+    font-size: 80px;
+    color: rgba(196, 161, 191, 0.15);
+    z-index: 0;
+    pointer-events: none;
+    transform: rotate(-15deg);
+  }
+
+  body::after {
+    content: '❀';
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    font-size: 80px;
+    color: rgba(196, 161, 191, 0.15);
+    z-index: 0;
+    pointer-events: none;
+    transform: rotate(15deg);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-montserrat;
+  }
+}
+
+@layer utilities {
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl;
+  }
+
+  .shimmer-effect {
+    @apply relative overflow-hidden;
+  }
+
+  .shimmer-effect::after {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-full;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 2s infinite;
+  }
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(183, 110, 121, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(183, 110, 121, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(183, 110, 121, 0.8);
+}
+
+/* Animaciones personalizadas */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
