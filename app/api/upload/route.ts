@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const source = (formData.get('source') as string) || 'unknown'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
         timestamp: serverTimestamp(),
         width: uploadResponse.width,
         height: uploadResponse.height,
+        source,
         createdAt: new Date().toISOString()
       }
       

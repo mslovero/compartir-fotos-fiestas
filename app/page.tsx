@@ -1,180 +1,210 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import PhotoCounter from '@/components/PhotoCounter'
-import { db } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import PhotoCounter from "@/components/PhotoCounter";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 
 interface Photo {
-  id: string
-  url: string
-  timestamp: number
+  id: string;
+  url: string;
+  timestamp: number;
 }
 
 export default function Home() {
-  const [photos, setPhotos] = useState<Photo[]>([])
-  const [displayedPhotos, setDisplayedPhotos] = useState<Photo[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const observerTarget = useRef<HTMLDivElement>(null)
-  const PHOTOS_PER_LOAD = 12
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [displayedPhotos, setDisplayedPhotos] = useState<Photo[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [source, setSource] = useState<"camera" | "gallery" | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const PHOTOS_PER_LOAD = 12;
 
   // Real-time sync with Firestore
   useEffect(() => {
-    const q = query(collection(db, 'photos'), orderBy('timestamp', 'desc'))
+    const q = query(collection(db, "photos"), orderBy("timestamp", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const photosData: Photo[] = []
+      const photosData: Photo[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data()
+        const data = doc.data();
         // Use timestamp if exists, fallback to createdAt (ISO string) or current time
-        let photoTime = Date.now()
+        let photoTime = Date.now();
         if (data.timestamp) {
-          photoTime = data.timestamp.toMillis?.() || data.timestamp
+          photoTime = data.timestamp.toMillis?.() || data.timestamp;
         } else if (data.createdAt) {
-          photoTime = new Date(data.createdAt).getTime()
+          photoTime = new Date(data.createdAt).getTime();
         }
 
         photosData.push({
           id: doc.id,
           url: data.url,
           timestamp: photoTime,
-        })
-      })
-      setPhotos(photosData)
+        });
+      });
+      setPhotos(photosData);
       // Initialize with first batch
-      setDisplayedPhotos(photosData.slice(0, PHOTOS_PER_LOAD))
-      setHasMore(photosData.length > PHOTOS_PER_LOAD)
-    })
+      setDisplayedPhotos(photosData.slice(0, PHOTOS_PER_LOAD));
+      setHasMore(photosData.length > PHOTOS_PER_LOAD);
+    });
 
-    return () => unsubscribe()
-  }, [])
+    return () => unsubscribe();
+  }, []);
 
   // Infinite scroll observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
-          loadMorePhotos()
+          loadMorePhotos();
         }
       },
-      { threshold: 0.1 }
-    )
+      { threshold: 0.1 },
+    );
 
-    const currentTarget = observerTarget.current
+    const currentTarget = observerTarget.current;
     if (currentTarget) {
-      observer.observe(currentTarget)
+      observer.observe(currentTarget);
     }
 
     return () => {
       if (currentTarget) {
-        observer.unobserve(currentTarget)
+        observer.unobserve(currentTarget);
       }
-    }
-  }, [hasMore, isLoadingMore, displayedPhotos.length])
+    };
+  }, [hasMore, isLoadingMore, displayedPhotos.length]);
+
+  const handleImageLoad = (id: string) => {
+    setLoadedImages((prev) => new Set(prev).add(id));
+  };
 
   const loadMorePhotos = () => {
-    if (isLoadingMore || !hasMore) return
+    if (isLoadingMore || !hasMore) return;
 
-    setIsLoadingMore(true)
+    setIsLoadingMore(true);
 
     setTimeout(() => {
-      const currentLength = displayedPhotos.length
-      const nextPhotos = photos.slice(currentLength, currentLength + PHOTOS_PER_LOAD)
+      const currentLength = displayedPhotos.length;
+      const nextPhotos = photos.slice(
+        currentLength,
+        currentLength + PHOTOS_PER_LOAD,
+      );
 
-      setDisplayedPhotos((prev) => [...prev, ...nextPhotos])
-      setHasMore(currentLength + PHOTOS_PER_LOAD < photos.length)
-      setIsLoadingMore(false)
-    }, 500)
-  }
+      setDisplayedPhotos((prev) => [...prev, ...nextPhotos]);
+      setHasMore(currentLength + PHOTOS_PER_LOAD < photos.length);
+      setIsLoadingMore(false);
+    }, 500);
+  };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file)
-      const reader = new FileReader()
+  const processFile = (file: File, sourceType: "camera" | "gallery") => {
+    if (file.type.startsWith("image/")) {
+      setSource(sourceType);
+      setSelectedFile(file);
+      const reader = new FileReader();
       reader.onload = (e) => {
-        setPreviewUrl(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
+        setPreviewUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file, "camera");
+  };
+
+  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file, "gallery");
+  };
 
   const handleUpload = async () => {
-    if (!selectedFile || !previewUrl) return
+    if (!selectedFile || !previewUrl) return;
 
-    setIsUploading(true)
-    setUploadProgress(0)
+    setIsUploading(true);
+    setUploadProgress(0);
 
     try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("source", source ?? "unknown");
 
-      setUploadProgress(50)
+      setUploadProgress(50);
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
+      const response = await fetch("/api/upload", {
+        method: "POST",
         body: formData,
-      })
+      });
 
-      setUploadProgress(90)
+      setUploadProgress(90);
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error + (data.detail ? `: ${data.detail}` : ''))
+        throw new Error(data.error + (data.detail ? `: ${data.detail}` : ""));
       }
 
-      setUploadProgress(100)
+      setUploadProgress(100);
 
       // Reset form
-      setPreviewUrl(null)
-      setSelectedFile(null)
+      setPreviewUrl(null);
+      setSelectedFile(null);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+        fileInputRef.current.value = "";
       }
 
       // Show success message briefly
       setTimeout(() => {
-        setUploadProgress(0)
-      }, 1000)
-
+        setUploadProgress(0);
+      }, 1000);
     } catch (error) {
-      console.error('Error uploading photo:', error)
-      alert('Error al subir la foto:\n' + (error instanceof Error ? error.message : String(error)))
+      console.error("Error uploading photo:", error);
+      alert(
+        "Error al subir la foto:\n" +
+          (error instanceof Error ? error.message : String(error)),
+      );
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
   const cancelUpload = () => {
-    setPreviewUrl(null)
-    setSelectedFile(null)
+    setPreviewUrl(null);
+    setSelectedFile(null);
+    setSource(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = "";
     }
-  }
+  };
 
   const deletePhoto = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta foto?')) return
+    if (!confirm("¿Estás seguro de que quieres eliminar esta foto?")) return;
 
     try {
-      await deleteDoc(doc(db, 'photos', id))
+      await deleteDoc(doc(db, "photos", id));
     } catch (error) {
-      console.error('Error deleting photo:', error)
-      alert('Error al eliminar la foto.')
+      console.error("Error deleting photo:", error);
+      alert("Error al eliminar la foto.");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8 relative">
-
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -192,9 +222,7 @@ export default function Home() {
         <h1 className="font-greatvibes text-7xl md:text-9xl text-purple-accent-600 mb-4">
           Lola
         </h1>
-        <div className="text-purple-accent-500 text-3xl mb-4">
-          ♥
-        </div>
+        <div className="text-purple-accent-500 text-3xl mb-4">♥</div>
         <p className="font-opensans text-dusty-rose-600 text-lg md:text-xl font-light">
           Captura y comparte los momentos más especiales
         </p>
@@ -213,29 +241,64 @@ export default function Home() {
           </h2>
 
           {!previewUrl ? (
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="border-4 border-dashed border-purple-accent-300 rounded-2xl p-12 text-center cursor-pointer transition-all hover:border-purple-accent-500 hover:bg-purple-accent-50/50"
-              onClick={() => fileInputRef.current?.click()}
-            >
+            <div className="space-y-4">
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleCameraCapture}
+                className="hidden"
+              />
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                onChange={handleFileSelect}
+                onChange={handleGallerySelect}
                 className="hidden"
               />
-              <svg className="w-20 h-20 mx-auto mb-4 text-purple-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <p className="font-montserrat text-purple-accent-600 text-lg font-semibold mb-2">
-                Toca para tomar una foto
-              </p>
-              <p className="font-opensans text-dusty-rose-500 text-sm">
-                o seleccionar de tu galería
-              </p>
-            </motion.div>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full bg-gradient-to-br from-purple-accent-500 to-purple-accent-600 rounded-2xl p-8 text-center cursor-pointer shadow-xl hover:shadow-2xl transition-all"
+              >
+                <svg
+                  className="w-16 h-16 mx-auto mb-3 text-white/90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <p className="font-montserrat text-white text-xl font-bold">
+                  Sacar foto
+                </p>
+                <p className="font-opensans text-purple-accent-200 text-sm mt-1">
+                  Usa la cámara para capturar el momento
+                </p>
+              </motion.button>
+
+              <div className="text-center">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="font-opensans text-dusty-rose-500 hover:text-dusty-rose-600 transition-colors text-sm underline underline-offset-4 decoration-dashed decoration-dusty-rose-300 hover:decoration-dusty-rose-500"
+                >
+                  o elegir de la galería →
+                </button>
+              </div>
+            </div>
           ) : (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -280,13 +343,25 @@ export default function Home() {
                   {isUploading ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
                       </svg>
                       Subiendo...
                     </span>
                   ) : (
-                    'Subir Foto'
+                    "Subir Foto"
                   )}
                 </motion.button>
               </div>
@@ -325,13 +400,17 @@ export default function Home() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ delay: Math.min(index * 0.05, 0.3) }}
-                    className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all"
+                    className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all bg-purple-accent-100"
                   >
+                    {!loadedImages.has(photo.id) && (
+                      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-purple-accent-100 via-purple-accent-200 to-purple-accent-100" />
+                    )}
                     <img
                       src={photo.url}
                       alt={`Foto ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full object-cover transition-opacity duration-500 ${loadedImages.has(photo.id) ? "opacity-100" : "opacity-0"}`}
                       loading="lazy"
+                      onLoad={() => handleImageLoad(photo.id)}
                     />
 
                     {/* Overlay con botón de eliminar */}
@@ -342,16 +421,26 @@ export default function Home() {
                         onClick={() => deletePhoto(photo.id)}
                         className="absolute top-4 right-4 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       </motion.button>
 
                       <div className="absolute bottom-4 left-4 text-white">
                         <p className="text-sm">
-                          {new Date(photo.timestamp).toLocaleString('es-ES', {
-                            hour: '2-digit',
-                            minute: '2-digit',
+                          {new Date(photo.timestamp).toLocaleString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
                           })}
                         </p>
                       </div>
@@ -371,10 +460,24 @@ export default function Home() {
                     className="flex items-center gap-3 text-purple-accent-500"
                   >
                     <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
                     </svg>
-                    <span className="text-sm font-montserrat font-medium">Cargando más fotos...</span>
+                    <span className="text-sm font-montserrat font-medium">
+                      Cargando más fotos...
+                    </span>
                   </motion.div>
                 )}
               </div>
@@ -404,9 +507,9 @@ export default function Home() {
         className="text-center mt-20 pb-8"
       >
         <p className="font-opensans text-dusty-rose-500 text-sm">
-          Creado con amor para celebrar un día inolvidable
+          Creado con amor para Loli, te queremos con todo nuestro corazón ♥
         </p>
       </motion.div>
     </div>
-  )
+  );
 }

@@ -23,7 +23,7 @@
   }
 
   body::after {
-    content: '❀';
+    content: '✿';
     position: fixed;
     top: 40px;
     right: 40px;
