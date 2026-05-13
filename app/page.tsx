@@ -521,9 +521,37 @@ export default function Home() {
         transition={{ delay: 0.5 }}
         className="text-center mt-20 pb-8"
       >
-        <p className="font-opensans text-dusty-rose-500 text-sm">
-          Creado con amor para Loli, te queremos con todo nuestro corazón ♥
-        </p>
+        <div className="max-w-md mx-auto">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <span className="h-px w-12 bg-gradient-to-r from-transparent via-purple-accent-300 to-transparent" />
+            <span className="text-purple-accent-300 text-lg">✿</span>
+            <span className="h-px w-12 bg-gradient-to-r from-transparent via-purple-accent-300 to-transparent" />
+          </div>
+
+          <blockquote className="font-greatvibes text-purple-accent-400 text-2xl md:text-3xl leading-relaxed mb-6 px-4">
+            {[
+              "Haz que tu cuento valga la pena",
+              "Haz de tus sueños la ilusión",
+              "Y que se asome la primavera",
+              "En las calles de tu corazón.",
+            ].map((line, i) => (
+              <motion.p
+                key={line}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.6 + i * 0.2, duration: 0.6 }}
+                className={i > 0 ? "-mt-2" : ""}
+              >
+                {line}
+              </motion.p>
+            ))}
+          </blockquote>
+
+          <p className="font-opensans text-dusty-rose-500 text-sm">
+            Creado con amor para Loli, te queremos con todo nuestro corazón ♥
+          </p>
+        </div>
       </motion.div>
     </div>
   );
