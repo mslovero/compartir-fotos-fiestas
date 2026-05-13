@@ -31,6 +31,8 @@ export default function Home() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -226,6 +228,42 @@ export default function Home() {
     }
   }
 
+  const downloadAllPhotos = async () => {
+    if (photos.length === 0) return;
+
+    setIsDownloading(true);
+    setDownloadProgress(0);
+
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      for (let i = 0; i < photos.length; i++) {
+        const response = await fetch(photos[i].url);
+        const blob = await response.blob();
+        const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+        zip.file(`fiesta-15-${String(i + 1).padStart(3, '0')}.${ext}`, blob);
+        setDownloadProgress(Math.round(((i + 1) / photos.length) * 100));
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const blobUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `fiesta-15-todas-las-fotos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error downloading all photos:', error);
+      alert('Error al descargar las fotos. Por favor intenta de nuevo.');
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+    }
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-8 relative">
       {/* Header */}
@@ -395,12 +433,43 @@ export default function Home() {
 
       {/* Gallery */}
       <div className="max-w-6xl mx-auto relative z-10">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-          <h2 className="text-3xl font-montserrat font-bold text-purple-accent-600">
+        <div className="text-center mb-2">
+          <h2 className="text-3xl font-montserrat font-bold text-purple-accent-600 mb-2">
             Galería de Recuerdos
           </h2>
           <PhotoCounter count={photos.length} />
         </div>
+
+        {photos.length > 0 && (
+          <div className="flex justify-center mb-8">
+            <motion.button
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={downloadAllPhotos}
+              disabled={isDownloading}
+              className="group flex items-center gap-2.5 px-5 py-2.5 bg-white/60 backdrop-blur-sm text-purple-accent-600 rounded-full font-montserrat text-sm font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-50 border border-purple-accent-200/50 hover:border-purple-accent-300"
+            >
+              {isDownloading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  {downloadProgress}%
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Descargar todo
+                </>
+              )}
+            </motion.button>
+          </div>
+        )}
 
         {photos.length === 0 ? (
           <motion.div
