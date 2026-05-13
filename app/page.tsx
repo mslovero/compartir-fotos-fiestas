@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PhotoCounter from "@/components/PhotoCounter";
 import { db } from "@/lib/firebase";
+import { compressImage } from "@/lib/compress-image";
 import {
   collection,
   query,
@@ -140,8 +141,13 @@ export default function Home() {
     setUploadProgress(0);
 
     try {
+      setUploadProgress(10)
+
+      const compressed = await compressImage(selectedFile)
+      setUploadProgress(40)
+
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      formData.append("file", compressed, "photo.jpg");
       formData.append("source", source ?? "unknown");
 
       setUploadProgress(50);

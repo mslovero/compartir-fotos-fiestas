@@ -40,8 +40,6 @@ export async function POST(request: NextRequest) {
       uploadResponse = await cloudinary.uploader.upload(base64Image, {
         folder: 'fiesta-15-photos',
         transformation: [
-          { width: 1200, height: 1200, crop: 'limit' },
-          { quality: 'auto' },
           { fetch_format: 'auto' }
         ]
       })
