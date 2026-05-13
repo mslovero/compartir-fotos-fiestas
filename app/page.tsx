@@ -199,15 +199,32 @@ export default function Home() {
   };
 
   const deletePhoto = async (id: string) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar esta foto?")) return;
+    if (!confirm('¿Estás seguro de que quieres eliminar esta foto?')) return
 
     try {
-      await deleteDoc(doc(db, "photos", id));
+      await deleteDoc(doc(db, 'photos', id))
     } catch (error) {
-      console.error("Error deleting photo:", error);
-      alert("Error al eliminar la foto.");
+      console.error('Error deleting photo:', error)
+      alert('Error al eliminar la foto.')
     }
-  };
+  }
+
+  const downloadPhoto = async (url: string, index: number) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `fiesta-15-${index + 1}.jpg`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch (error) {
+      console.error('Error downloading photo:', error)
+    }
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-8 relative">
@@ -421,26 +438,18 @@ export default function Home() {
 
                     {/* Overlay con botón de eliminar */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => deletePhoto(photo.id)}
-                        className="absolute top-4 right-4 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => downloadPhoto(photo.url, index)}
+                          className="bg-white/20 backdrop-blur-sm text-white p-2 rounded-full shadow-lg hover:bg-white/40 transition-all"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </motion.button>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </motion.button>
+                      </div>
 
                       <div className="absolute bottom-4 left-4 text-white">
                         <p className="text-sm">
