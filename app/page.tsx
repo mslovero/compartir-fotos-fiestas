@@ -33,10 +33,18 @@ export default function Home() {
       const photosData: Photo[] = []
       snapshot.forEach((doc) => {
         const data = doc.data()
+        // Use timestamp if exists, fallback to createdAt (ISO string) or current time
+        let photoTime = Date.now()
+        if (data.timestamp) {
+          photoTime = data.timestamp.toMillis?.() || data.timestamp
+        } else if (data.createdAt) {
+          photoTime = new Date(data.createdAt).getTime()
+        }
+
         photosData.push({
           id: doc.id,
           url: data.url,
-          timestamp: data.timestamp?.toMillis() || Date.now(),
+          timestamp: photoTime,
         })
       })
       setPhotos(photosData)
@@ -117,11 +125,11 @@ export default function Home() {
 
       setUploadProgress(90)
 
-      if (!response.ok) {
-        throw new Error('Upload failed')
-      }
+      const data = await response.json()
 
-      await response.json()
+      if (!response.ok) {
+        throw new Error(data.error + (data.detail ? `: ${data.detail}` : ''))
+      }
 
       setUploadProgress(100)
 
@@ -139,7 +147,7 @@ export default function Home() {
 
     } catch (error) {
       console.error('Error uploading photo:', error)
-      alert('Error al subir la foto. Por favor intenta de nuevo.')
+      alert('Error al subir la foto:\n' + (error instanceof Error ? error.message : String(error)))
     } finally {
       setIsUploading(false)
     }
@@ -214,7 +222,6 @@ export default function Home() {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleFileSelect}
                 className="hidden"
               />
